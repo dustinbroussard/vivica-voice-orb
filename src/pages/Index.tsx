@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import VoiceOrb from '@/components/VoiceOrb';
 import VivicaLogo from '@/components/VivicaLogo';
 import ActivationHint from '@/components/ActivationHint';
@@ -15,17 +15,42 @@ const Index = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [volume, setVolume] = useState(0);
   const [showSplash, setShowSplash] = useState(true);
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const shouldRestartRef = useRef(true);
 
   // Web Speech API
-  const [recognition, setRecognition] = useState<any>(null);
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
+
+  // Load preferred speech synthesis voice (Google voices sound natural on Android)
+  useEffect(() => {
+    if (typeof speechSynthesis === 'undefined') return;
+
+    const updateVoices = () => {
+      const voices = speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.lang === 'en-US' && v.name.includes('Google'))
+        || voices.find(v => v.lang.startsWith('en'))
+        || null;
+      setVoice(preferred);
+    };
+
+    updateVoices();
+    speechSynthesis.onvoiceschanged = updateVoices;
+  }, []);
 
   // Initialize speech recognition
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window) {
-      const speechRecognition = new (window as any).webkitSpeechRecognition();
-      speechRecognition.continuous = false;
-      speechRecognition.interimResults = false;
+      if ('webkitSpeechRecognition' in window) {
+        const SpeechRecognitionConstructor = (
+          window as Window & typeof globalThis & {
+            webkitSpeechRecognition: new () => SpeechRecognition;
+          }
+        ).webkitSpeechRecognition;
+        const speechRecognition = new SpeechRecognitionConstructor();
+      // Continuous mode allows for back-to-back conversations without manual restarts
+      speechRecognition.continuous = true;
+      // Interim results give faster feedback and feel more natural
+      speechRecognition.interimResults = true;
       speechRecognition.lang = 'en-US';
 
       speechRecognition.onstart = () => {
@@ -33,12 +58,15 @@ const Index = () => {
         setState('listening');
       };
 
-      speechRecognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        handleVoiceInput(transcript);
+      speechRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        const result = event.results[event.resultIndex];
+        if (result.isFinal) {
+          const transcript = result[0].transcript;
+          handleVoiceInput(transcript);
+        }
       };
 
-      speechRecognition.onerror = (event: any) => {
+      speechRecognition.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setState('error');
         setIsListening(false);
@@ -46,7 +74,9 @@ const Index = () => {
 
       speechRecognition.onend = () => {
         setIsListening(false);
-        if (isActive && !isSettingsOpen) {
+        if (isActive && !isSettingsOpen && shouldRestartRef.current) {
+          speechRecognition.start();
+        } else if (!isActive || isSettingsOpen) {
           setState('idle');
         }
       };
@@ -58,16 +88,24 @@ const Index = () => {
   const handleVoiceInput = async (transcript: string) => {
     setState('processing');
     console.log('User said:', transcript);
+    if (recognition) {
+      shouldRestartRef.current = false;
+      recognition.stop();
+    }
     
     try {
       const response = await makeOpenRouterCall(transcript);
       setState('speaking');
       await speakResponse(response);
-      
+
       if (isActive && !isSettingsOpen) {
         setState('listening');
         if (recognition) {
-          recognition.start();
+          // small delay to avoid capturing synthesized speech
+          setTimeout(() => {
+            shouldRestartRef.current = true;
+            recognition.start();
+          }, 250);
         }
       } else {
         setState('idle');
@@ -116,6 +154,9 @@ const Index = () => {
   const speakResponse = (text: string): Promise<void> => {
     return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
+      if (voice) {
+        utterance.voice = voice;
+      }
       utterance.rate = 0.9;
       utterance.pitch = 1.1;
       utterance.volume = 0.8;

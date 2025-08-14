@@ -53,13 +53,12 @@ const Index = () => {
 
       setRecognition(speechRecognition);
     }
-  }, []);
+  }, [isActive, isSettingsOpen]);
 
   const handleVoiceInput = async (transcript: string) => {
     setState('processing');
     console.log('User said:', transcript);
     
-    // Here we'll make the actual API call
     try {
       const response = await makeOpenRouterCall(transcript);
       setState('speaking');
@@ -128,35 +127,6 @@ const Index = () => {
     });
   };
 
-  // Simulate voice activity for demo when not using real speech
-  const simulateVoiceActivity = useCallback(() => {
-    if (!isActive || isSettingsOpen || isListening) return;
-
-    const activities: VivicaState[] = ['listening', 'processing', 'speaking'];
-    let currentIndex = 0;
-
-    const cycle = () => {
-      if (!isActive || isSettingsOpen || isListening) {
-        setState('idle');
-        return;
-      }
-
-      setState(activities[currentIndex]);
-      
-      const newVolume = Math.random() * 0.8 + 0.2;
-      setVolume(newVolume);
-
-      currentIndex = (currentIndex + 1) % activities.length;
-      
-      const delay = activities[currentIndex] === 'processing' ? 2000 : 
-                   activities[currentIndex] === 'speaking' ? 3000 : 1500;
-      
-      setTimeout(cycle, delay);
-    };
-
-    cycle();
-  }, [isActive, isSettingsOpen, isListening]);
-
   const handleActivation = useCallback(() => {
     if (isSettingsOpen) return;
     
@@ -203,7 +173,9 @@ const Index = () => {
       isLongPress = false;
       longPressTimer = setTimeout(() => {
         isLongPress = true;
-        navigator.vibrate?.(50); // Haptic feedback if available
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
         handleSettingsToggle();
       }, 800);
     };

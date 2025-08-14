@@ -16,7 +16,8 @@ const SettingsHint: React.FC<SettingsHintProps> = ({ isActive, className }) => {
       isActive && "opacity-20",
       className
     )}>
-      Press SPACE or long-press screen for settings
+      <div className="md:hidden">Long press for settings</div>
+      <div className="hidden md:block">Press SPACE or long-press for settings</div>
     </div>
   );
 };

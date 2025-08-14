@@ -19,13 +19,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
   const [activeTab, setActiveTab] = useState('models');
   const [temperature, setTemperature] = useState([0.7]);
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('openai/gpt-3.5-turbo');
+  const [selectedModel, setSelectedModel] = useState('openai/gpt-oss-20b:free');
   const [systemPrompt, setSystemPrompt] = useState('You are VIVICA, a helpful AI assistant. Keep responses concise for voice interaction.');
 
   // Load settings from localStorage on mount
   useEffect(() => {
     const savedApiKey = localStorage.getItem('openrouter_api_key') || '';
-    const savedModel = localStorage.getItem('selected_model') || 'openai/gpt-3.5-turbo';
+    const savedModel = localStorage.getItem('selected_model') || 'openai/gpt-oss-20b:free';
     const savedTemp = parseFloat(localStorage.getItem('temperature') || '0.7');
     const savedPrompt = localStorage.getItem('system_prompt') || 'You are VIVICA, a helpful AI assistant. Keep responses concise for voice interaction.';
 

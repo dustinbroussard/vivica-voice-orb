@@ -67,19 +67,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
       
       {/* Panel */}
       <div className={cn(
-        "absolute right-0 top-0 h-full w-full max-w-md",
+        "absolute right-0 top-0 h-full w-full sm:max-w-md",
         "bg-black/95 backdrop-blur-md border-l border-white/20",
-        "flex flex-direction-column overflow-hidden"
+        "flex flex-col overflow-hidden"
       )}>
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-white/10">
+        <div className="flex justify-between items-center p-4 border-b border-white/10 shrink-0">
           <h2 className="text-lg font-semibold text-white">Settings</h2>
           <div className="flex gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={saveSettings}
-              className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+              className="text-green-400 hover:text-green-300 hover:bg-green-500/10 min-h-[44px] min-w-[44px]"
             >
               <Save className="w-4 h-4 mr-1" />
               Save
@@ -88,7 +88,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-white/70 hover:text-white hover:bg-white/10"
+              className="text-white/70 hover:text-white hover:bg-white/10 min-h-[44px] min-w-[44px]"
             >
               <X className="w-5 h-5" />
             </Button>
@@ -96,14 +96,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-white/10 overflow-x-auto">
+        <div className="flex border-b border-white/10 overflow-x-auto shrink-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex-1 min-w-max px-4 py-3 text-sm font-medium transition-all duration-200",
-                "border-b-2 border-transparent hover:text-white",
+                "flex-1 min-w-max px-4 py-4 text-sm font-medium transition-all duration-200 min-h-[52px]",
+                "border-b-2 border-transparent hover:text-white touch-manipulation",
                 activeTab === tab.id
                   ? "text-white border-b-purple-500 bg-white/5"
                   : "text-white/70 hover:bg-white/5"
@@ -117,42 +117,44 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {activeTab === 'models' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <Label className="text-white/90 font-medium">OpenRouter API Key</Label>
+                <Label className="text-white/90 font-medium text-base mb-3 block">OpenRouter API Key</Label>
                 <Input 
                   type="password"
                   placeholder="sk-or-..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="mt-2 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 h-12 text-base"
                 />
-                <p className="text-xs text-white/50 mt-1">
-                  Get your API key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">openrouter.ai</a>
+                <p className="text-sm text-white/50 mt-2">
+                  Get your API key from <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300 underline">openrouter.ai</a>
                 </p>
               </div>
 
               <div>
-                <Label className="text-white/90 font-medium">Select Model</Label>
-                <div className="mt-2">
-                  <ModelSelect
-                    value={selectedModel}
-                    onChange={setSelectedModel}
-                  />
-                </div>
+                <Label className="text-white/90 font-medium text-base mb-3 block">Select Model</Label>
+                <ModelSelect
+                  value={selectedModel}
+                  onChange={setSelectedModel}
+                />
               </div>
 
               <div>
-                <Label className="text-white/90 font-medium">Temperature: {temperature[0].toFixed(1)}</Label>
-                <Slider
-                  value={temperature}
-                  onValueChange={setTemperature}
-                  max={1}
-                  min={0}
-                  step={0.1}
-                  className="mt-2"
-                />
-                <p className="text-xs text-white/50 mt-1">
+                <Label className="text-white/90 font-medium text-base mb-3 block">
+                  Temperature: {temperature[0].toFixed(1)}
+                </Label>
+                <div className="px-2">
+                  <Slider
+                    value={temperature}
+                    onValueChange={setTemperature}
+                    max={1}
+                    min={0}
+                    step={0.1}
+                    className="h-8"
+                  />
+                </div>
+                <p className="text-sm text-white/50 mt-2">
                   Higher values make responses more creative
                 </p>
               </div>
@@ -160,16 +162,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
           )}
 
           {activeTab === 'persona' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <Label className="text-white/90 font-medium">System Prompt</Label>
+                <Label className="text-white/90 font-medium text-base mb-3 block">System Prompt</Label>
                 <Textarea 
                   placeholder="You are VIVICA, a helpful AI assistant..."
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  className="mt-2 bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[120px]"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/50 min-h-[160px] text-base resize-none"
                 />
-                <p className="text-xs text-white/50 mt-1">
+                <p className="text-sm text-white/50 mt-2">
                   This defines VIVICA's personality and behavior
                 </p>
               </div>
@@ -177,13 +179,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, classNam
           )}
 
           {activeTab === 'voice' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <Label className="text-white/90 font-medium">Voice Settings</Label>
-                <p className="text-white/70 mt-2">
-                  Voice settings are handled by your device's speech synthesis. 
-                  You can adjust voice, speed, and other settings in your device's accessibility options.
-                </p>
+                <Label className="text-white/90 font-medium text-base mb-3 block">Voice Settings</Label>
+                <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                  <p className="text-white/70 text-base leading-relaxed">
+                    Voice settings are handled by your device's speech synthesis. 
+                    You can adjust voice, speed, and other settings in your device's accessibility options.
+                  </p>
+                </div>
               </div>
             </div>
           )}

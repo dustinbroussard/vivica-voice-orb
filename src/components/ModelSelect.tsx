@@ -1,141 +1,140 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
-interface ModelOption {
-  id: string;
-  name: string;
-  description?: string;
-}
+const OPENROUTER_MODELS = [
+  // OpenAI Models
+  { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+  { id: 'openai/gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
+  { id: 'openai/gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
+  
+  // Anthropic Models
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
+  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
+  
+  // Google Models
+  { id: 'google/gemini-pro', name: 'Gemini Pro', provider: 'Google' },
+  { id: 'google/gemini-pro-1.5', name: 'Gemini Pro 1.5', provider: 'Google' },
+  
+  // Meta Models
+  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', provider: 'Meta' },
+  { id: 'meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B', provider: 'Meta' },
+  
+  // Mistral Models
+  { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B', provider: 'Mistral' },
+  { id: 'mistralai/mixtral-8x7b-instruct', name: 'Mixtral 8x7B', provider: 'Mistral' },
+  
+  // Other Popular Models
+  { id: 'cohere/command-r-plus', name: 'Command R+', provider: 'Cohere' },
+  { id: 'perplexity/llama-3.1-sonar-huge-128k-online', name: 'Sonar Huge 128K', provider: 'Perplexity' },
+];
 
 interface ModelSelectProps {
   value: string;
-  onChange: (modelId: string) => void;
-  className?: string;
+  onChange: (value: string) => void;
 }
 
-const OPENROUTER_MODELS: ModelOption[] = [
-  { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'Latest GPT-4 model' },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'Faster, cheaper GPT-4' },
-  { id: 'openai/gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and efficient' },
-  { id: 'anthropic/claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Latest Claude model' },
-  { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', description: 'Fast Claude model' },
-  { id: 'google/gemini-pro', name: 'Gemini Pro', description: 'Google\'s flagship model' },
-  { id: 'meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B', description: 'Open source model' },
-  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', description: 'Larger Llama model' },
-  { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B', description: 'Efficient open model' },
-  { id: 'mistralai/mixtral-8x7b-instruct', name: 'Mixtral 8x7B', description: 'Mixture of experts' },
-];
+const ModelSelect: React.FC<ModelSelectProps> = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-const ModelSelect: React.FC<ModelSelectProps> = ({ value, onChange, className }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredModels, setFilteredModels] = useState(OPENROUTER_MODELS);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Filter models based on search term
-  useEffect(() => {
-    const filtered = OPENROUTER_MODELS.filter(model =>
-      model.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      model.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (model.description && model.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredModels = useMemo(() => {
+    if (!searchQuery) return OPENROUTER_MODELS;
+    
+    const query = searchQuery.toLowerCase();
+    return OPENROUTER_MODELS.filter(
+      model =>
+        model.name.toLowerCase().includes(query) ||
+        model.provider.toLowerCase().includes(query) ||
+        model.id.toLowerCase().includes(query)
     );
-    setFilteredModels(filtered);
-  }, [searchTerm]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Focus search input when dropdown opens
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
+  }, [searchQuery]);
 
   const selectedModel = OPENROUTER_MODELS.find(model => model.id === value);
 
-  const handleModelSelect = (modelId: string) => {
-    onChange(modelId);
-    setIsOpen(false);
-    setSearchTerm('');
-  };
-
   return (
-    <div className={cn("relative", className)} ref={dropdownRef}>
-      {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/15 transition-colors"
-      >
-        <span className="text-left truncate">
-          {selectedModel ? selectedModel.name : 'Select a model...'}
-        </span>
-        <ChevronDown className={cn(
-          "w-4 h-4 transition-transform",
-          isOpen && "rotate-180"
-        )} />
-      </button>
-
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-black/95 backdrop-blur-md border border-white/20 rounded-lg shadow-lg z-50 max-h-80 overflow-hidden">
-          {/* Search Input */}
-          <div className="p-3 border-b border-white/10">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/50" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search models..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder:text-white/50 focus:outline-none focus:border-purple-500"
-              />
-            </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-white/10 border-white/20 text-white hover:bg-white/15 h-12 text-base"
+        >
+          <div className="flex flex-col items-start max-w-[calc(100%-24px)]">
+            <span className="truncate">
+              {selectedModel ? selectedModel.name : 'Select model...'}
+            </span>
+            {selectedModel && (
+              <span className="text-xs text-white/50 truncate">
+                {selectedModel.provider}
+              </span>
+            )}
           </div>
-
-          {/* Model List */}
-          <div className="max-h-60 overflow-y-auto">
-            {filteredModels.length > 0 ? (
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0 bg-black/95 backdrop-blur-md border-white/20" side="bottom" align="start">
+        <div className="p-3 border-b border-white/10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 h-4 w-4" />
+            <Input
+              placeholder="Search models..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 h-10"
+            />
+          </div>
+        </div>
+        <ScrollArea className="h-[300px]">
+          <div className="p-1">
+            {filteredModels.length === 0 ? (
+              <div className="px-3 py-6 text-center text-white/50 text-sm">
+                No models found
+              </div>
+            ) : (
               filteredModels.map((model) => (
                 <button
                   key={model.id}
-                  type="button"
-                  onClick={() => handleModelSelect(model.id)}
+                  onClick={() => {
+                    onChange(model.id);
+                    setOpen(false);
+                    setSearchQuery('');
+                  }}
                   className={cn(
-                    "w-full px-4 py-3 text-left hover:bg-white/10 transition-colors border-b border-white/5 last:border-b-0",
-                    value === model.id && "bg-purple-500/20 text-purple-300"
+                    "w-full flex items-center justify-between px-3 py-3 text-left rounded-md transition-colors touch-manipulation",
+                    "hover:bg-white/10 focus:bg-white/10 focus:outline-none",
+                    value === model.id && "bg-white/10"
                   )}
                 >
-                  <div className="font-medium text-white">{model.name}</div>
-                  {model.description && (
-                    <div className="text-sm text-white/70 mt-1">{model.description}</div>
+                  <div className="flex flex-col">
+                    <span className="text-white text-sm font-medium">
+                      {model.name}
+                    </span>
+                    <span className="text-white/50 text-xs">
+                      {model.provider}
+                    </span>
+                  </div>
+                  {value === model.id && (
+                    <Check className="h-4 w-4 text-green-400" />
                   )}
-                  <div className="text-xs text-white/50 mt-1 font-mono">{model.id}</div>
                 </button>
               ))
-            ) : (
-              <div className="px-4 py-6 text-center text-white/50">
-                No models found matching "{searchTerm}"
-              </div>
             )}
           </div>
-        </div>
-      )}
-    </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   );
 };
 

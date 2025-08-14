@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,34 +10,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-const OPENROUTER_MODELS = [
-  // OpenAI Models
-  { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
-  { id: 'openai/gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
-  { id: 'openai/gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'OpenAI' },
-  
-  // Anthropic Models
-  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-  { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
-  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
-  
-  // Google Models
-  { id: 'google/gemini-pro', name: 'Gemini Pro', provider: 'Google' },
-  { id: 'google/gemini-pro-1.5', name: 'Gemini Pro 1.5', provider: 'Google' },
-  
-  // Meta Models
-  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B', provider: 'Meta' },
-  { id: 'meta-llama/llama-3.1-8b-instruct', name: 'Llama 3.1 8B', provider: 'Meta' },
-  
-  // Mistral Models
-  { id: 'mistralai/mistral-7b-instruct', name: 'Mistral 7B', provider: 'Mistral' },
-  { id: 'mistralai/mixtral-8x7b-instruct', name: 'Mixtral 8x7B', provider: 'Mistral' },
-  
-  // Other Popular Models
-  { id: 'cohere/command-r-plus', name: 'Command R+', provider: 'Cohere' },
-  { id: 'perplexity/llama-3.1-sonar-huge-128k-online', name: 'Sonar Huge 128K', provider: 'Perplexity' },
-];
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  provider: string;
+}
 
 interface ModelSelectProps {
   value: string;
@@ -47,20 +24,43 @@ interface ModelSelectProps {
 const ModelSelect: React.FC<ModelSelectProps> = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [models, setModels] = useState<OpenRouterModel[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/models');
+        const data = await res.json();
+        const parsed = (data.data || []).map((model: any) => ({
+          id: model.id,
+          name: model.name || model.id,
+          provider: model.id.split('/')[0],
+        }));
+        setModels(parsed);
+      } catch (err) {
+        console.error('Failed to fetch models', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   const filteredModels = useMemo(() => {
-    if (!searchQuery) return OPENROUTER_MODELS;
-    
+    if (!searchQuery) return models;
+
     const query = searchQuery.toLowerCase();
-    return OPENROUTER_MODELS.filter(
+    return models.filter(
       model =>
         model.name.toLowerCase().includes(query) ||
         model.provider.toLowerCase().includes(query) ||
         model.id.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [searchQuery, models]);
 
-  const selectedModel = OPENROUTER_MODELS.find(model => model.id === value);
+  const selectedModel = models.find(model => model.id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -98,7 +98,11 @@ const ModelSelect: React.FC<ModelSelectProps> = ({ value, onChange }) => {
         </div>
         <ScrollArea className="h-[300px]">
           <div className="p-1">
-            {filteredModels.length === 0 ? (
+            {loading ? (
+              <div className="px-3 py-6 text-center text-white/50 text-sm">
+                Loading models...
+              </div>
+            ) : filteredModels.length === 0 ? (
               <div className="px-3 py-6 text-center text-white/50 text-sm">
                 No models found
               </div>

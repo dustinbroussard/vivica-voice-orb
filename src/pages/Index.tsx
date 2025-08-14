@@ -80,7 +80,7 @@ const Index = () => {
 
   const makeOpenRouterCall = async (message: string): Promise<string> => {
     const apiKey = localStorage.getItem('openrouter_api_key');
-    const model = localStorage.getItem('selected_model') || 'openai/gpt-3.5-turbo';
+    const model = localStorage.getItem('selected_model') || 'openai/gpt-oss-20b:free';
     
     if (!apiKey) {
       throw new Error('Please set your OpenRouter API key in settings');

@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import VoiceOrb from '@/components/VoiceOrb';
 import VivicaLogo from '@/components/VivicaLogo';
 import ActivationHint from '@/components/ActivationHint';
 import SettingsHint from '@/components/SettingsHint';
 import SettingsPanel from '@/components/SettingsPanel';
+import SplashScreen from '@/components/SplashScreen';
 
 type VivicaState = 'idle' | 'listening' | 'processing' | 'speaking' | 'error';
 
@@ -13,6 +13,7 @@ const Index = () => {
   const [isActive, setIsActive] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [volume, setVolume] = useState(0);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Simulate voice activity for demo
   const simulateVoiceActivity = useCallback(() => {
@@ -67,6 +68,10 @@ const Index = () => {
       setVolume(0);
     }
   }, [isSettingsOpen, isActive]);
+
+  const handleSplashComplete = useCallback(() => {
+    setShowSplash(false);
+  }, []);
 
   // Keyboard handlers
   useEffect(() => {
@@ -136,6 +141,10 @@ const Index = () => {
   useEffect(() => {
     document.body.className = isActive ? 'active' : '';
   }, [isActive]);
+
+  if (showSplash) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black">

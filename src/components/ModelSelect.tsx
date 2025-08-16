@@ -29,21 +29,23 @@ const ModelSelect: React.FC<ModelSelectProps> = ({ value, onChange }) => {
 
   useEffect(() => {
     const fetchModels = async () => {
-      try {
-        const res = await fetch('https://openrouter.ai/api/v1/models');
-        const data = await res.json();
-        const parsed = (data.data || []).map((model: any) => ({
-          id: model.id,
-          name: model.name || model.id,
-          provider: model.id.split('/')[0],
-        }));
-        setModels(parsed);
-      } catch (err) {
-        console.error('Failed to fetch models', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+        try {
+          const res = await fetch('https://openrouter.ai/api/v1/models');
+          const data = await res.json();
+          const parsed = (data.data || []).map(
+            (model: { id: string; name?: string }) => ({
+              id: model.id,
+              name: model.name || model.id,
+              provider: model.id.split('/')[0],
+            })
+          );
+          setModels(parsed);
+        } catch (err) {
+          console.error('Failed to fetch models', err);
+        } finally {
+          setLoading(false);
+        }
+      };
 
     fetchModels();
   }, []);

@@ -8,6 +8,10 @@ import SettingsPanel from '@/components/SettingsPanel';
 import SplashScreen from '@/components/SplashScreen';
 
 type VivicaState = 'idle' | 'listening' | 'processing' | 'speaking' | 'error';
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
 
 const Index = () => {
   const [state, setState] = useState<VivicaState>('idle');
@@ -17,6 +21,13 @@ const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
   const shouldRestartRef = useRef(true);
+  const conversationRef = useRef<ChatMessage[]>([
+    {
+      role: 'system',
+      content:
+        'You are VIVICA, a helpful AI assistant. Keep responses concise for voice interaction.',
+    },
+  ]);
 
   // Web Speech API
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
@@ -38,15 +49,45 @@ const Index = () => {
     speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
+  const restartRecognition = useCallback(() => {
+    if (recognition && isActive && !isSettingsOpen) {
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error('Failed to restart recognition:', err);
+      }
+    }
+  }, [recognition, isActive, isSettingsOpen]);
+
+  const speakResponse = useCallback(
+    (text: string): Promise<void> => {
+      return new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (voice) {
+          utterance.voice = voice;
+        }
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        utterance.volume = 0.8;
+
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+
+        speechSynthesis.speak(utterance);
+      });
+    },
+    [voice]
+  );
+
   // Initialize speech recognition
   useEffect(() => {
-      if ('webkitSpeechRecognition' in window) {
-        const SpeechRecognitionConstructor = (
-          window as Window & typeof globalThis & {
-            webkitSpeechRecognition: new () => SpeechRecognition;
-          }
-        ).webkitSpeechRecognition;
-        const speechRecognition = new SpeechRecognitionConstructor();
+    if ('webkitSpeechRecognition' in window) {
+      const SpeechRecognitionConstructor = (
+        window as Window & typeof globalThis & {
+          webkitSpeechRecognition: new () => SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
+      const speechRecognition = new SpeechRecognitionConstructor();
       // Continuous mode allows for back-to-back conversations without manual restarts
       speechRecognition.continuous = true;
       // Interim results give faster feedback and feel more natural
@@ -83,20 +124,20 @@ const Index = () => {
 
       setRecognition(speechRecognition);
     }
-  }, [isActive, isSettingsOpen]);
+  }, [isActive, isSettingsOpen, handleVoiceInput]);
 
-  const handleVoiceInput = async (transcript: string) => {
+  const handleVoiceInput = useCallback(async (transcript: string) => {
     setState('processing');
     console.log('User said:', transcript);
     if (recognition) {
       shouldRestartRef.current = false;
       recognition.stop();
     }
-    
+
     try {
-      const response = await makeOpenRouterCall(transcript);
-      setState('speaking');
-      await speakResponse(response);
+       const response = await makeOpenRouterCall(transcript);
+       setState('speaking');
+       await speakResponse(response);
 
       if (isActive && !isSettingsOpen) {
         setState('listening');
@@ -104,7 +145,7 @@ const Index = () => {
           // small delay to avoid capturing synthesized speech
           setTimeout(() => {
             shouldRestartRef.current = true;
-            recognition.start();
+            restartRecognition();
           }, 250);
         }
       } else {
@@ -114,7 +155,7 @@ const Index = () => {
       console.error('Error processing voice input:', error);
       setState('error');
     }
-  };
+  }, [isActive, isSettingsOpen, recognition, restartRecognition, speakResponse]);
 
   const makeOpenRouterCall = async (message: string): Promise<string> => {
     const apiKey = localStorage.getItem('openrouter_api_key');
@@ -123,6 +164,8 @@ const Index = () => {
     if (!apiKey) {
       throw new Error('Please set your OpenRouter API key in settings');
     }
+
+    conversationRef.current.push({ role: 'user', content: message });
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -133,10 +176,7 @@ const Index = () => {
       },
       body: JSON.stringify({
         model: model,
-        messages: [
-          { role: 'system', content: 'You are VIVICA, a helpful AI assistant. Keep responses concise for voice interaction.' },
-          { role: 'user', content: message }
-        ],
+        messages: conversationRef.current,
         max_tokens: 300,
         temperature: 0.7
       })
@@ -148,25 +188,14 @@ const Index = () => {
     }
 
     const data = await response.json();
-    return data.choices[0].message.content;
+    const reply = data.choices[0].message.content;
+    conversationRef.current.push({ role: 'assistant', content: reply });
+    if (conversationRef.current.length > 10) {
+      conversationRef.current.splice(1, conversationRef.current.length - 10); // keep system + last 9 exchanges
+    }
+    return reply;
   };
 
-  const speakResponse = (text: string): Promise<void> => {
-    return new Promise((resolve) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      if (voice) {
-        utterance.voice = voice;
-      }
-      utterance.rate = 0.9;
-      utterance.pitch = 1.1;
-      utterance.volume = 0.8;
-      
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      
-      speechSynthesis.speak(utterance);
-    });
-  };
 
   const handleActivation = useCallback(() => {
     if (isSettingsOpen) return;

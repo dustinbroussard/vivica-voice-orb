@@ -49,16 +49,6 @@ const Index = () => {
     speechSynthesis.onvoiceschanged = updateVoices;
   }, []);
 
-  const restartRecognition = useCallback(() => {
-    if (recognition && isActive && !isSettingsOpen) {
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error('Failed to restart recognition:', err);
-      }
-    }
-  }, [recognition, isActive, isSettingsOpen]);
-
   const speakResponse = useCallback(
     (text: string): Promise<void> => {
       return new Promise((resolve) => {
@@ -79,18 +69,87 @@ const Index = () => {
     [voice]
   );
 
+  const makeOpenRouterCall = async (message: string): Promise<string> => {
+    const apiKey = localStorage.getItem('openrouter_api_key');
+    const model = localStorage.getItem('selected_model') || 'openai/gpt-4o-mini';
+    
+    if (!apiKey) {
+      throw new Error('Please set your OpenRouter API key in settings');
+    }
+
+    conversationRef.current.push({ role: 'user', content: message });
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Title': 'VIVICA Voice Assistant'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: conversationRef.current,
+        max_tokens: 300,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const data = await response.json();
+    const reply = data.choices[0].message.content;
+    conversationRef.current.push({ role: 'assistant', content: reply });
+    if (conversationRef.current.length > 10) {
+      conversationRef.current.splice(1, conversationRef.current.length - 10);
+    }
+    return reply;
+  };
+
+  const handleVoiceInput = useCallback(async (transcript: string) => {
+    setState('processing');
+    console.log('User said:', transcript);
+    if (recognition) {
+      shouldRestartRef.current = false;
+      recognition.stop();
+    }
+
+    try {
+       const response = await makeOpenRouterCall(transcript);
+       setState('speaking');
+       await speakResponse(response);
+
+      if (isActive && !isSettingsOpen) {
+        setState('listening');
+        if (recognition) {
+          setTimeout(() => {
+            shouldRestartRef.current = true;
+            if (recognition && isActive && !isSettingsOpen) {
+              try {
+                recognition.start();
+              } catch (err) {
+                console.error('Failed to restart recognition:', err);
+              }
+            }
+          }, 250);
+        }
+      } else {
+        setState('idle');
+      }
+    } catch (error) {
+      console.error('Error processing voice input:', error);
+      setState('error');
+    }
+  }, [isActive, isSettingsOpen, recognition, speakResponse]);
+
   // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window) {
-      const SpeechRecognitionConstructor = (
-        window as Window & typeof globalThis & {
-          webkitSpeechRecognition: new () => SpeechRecognition;
-        }
-      ).webkitSpeechRecognition;
+      const SpeechRecognitionConstructor = window.webkitSpeechRecognition;
       const speechRecognition = new SpeechRecognitionConstructor();
-      // Continuous mode allows for back-to-back conversations without manual restarts
       speechRecognition.continuous = true;
-      // Interim results give faster feedback and feel more natural
       speechRecognition.interimResults = true;
       speechRecognition.lang = 'en-US';
 
@@ -124,78 +183,7 @@ const Index = () => {
 
       setRecognition(speechRecognition);
     }
-  }, [isActive, isSettingsOpen, handleVoiceInput]);
-
-  const handleVoiceInput = useCallback(async (transcript: string) => {
-    setState('processing');
-    console.log('User said:', transcript);
-    if (recognition) {
-      shouldRestartRef.current = false;
-      recognition.stop();
-    }
-
-    try {
-       const response = await makeOpenRouterCall(transcript);
-       setState('speaking');
-       await speakResponse(response);
-
-      if (isActive && !isSettingsOpen) {
-        setState('listening');
-        if (recognition) {
-          // small delay to avoid capturing synthesized speech
-          setTimeout(() => {
-            shouldRestartRef.current = true;
-            restartRecognition();
-          }, 250);
-        }
-      } else {
-        setState('idle');
-      }
-    } catch (error) {
-      console.error('Error processing voice input:', error);
-      setState('error');
-    }
-  }, [isActive, isSettingsOpen, recognition, restartRecognition, speakResponse]);
-
-  const makeOpenRouterCall = async (message: string): Promise<string> => {
-    const apiKey = localStorage.getItem('openrouter_api_key');
-    const model = localStorage.getItem('selected_model') || 'openai/gpt-oss-20b:free';
-    
-    if (!apiKey) {
-      throw new Error('Please set your OpenRouter API key in settings');
-    }
-
-    conversationRef.current.push({ role: 'user', content: message });
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Title': 'VIVICA Voice Assistant'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: conversationRef.current,
-        max_tokens: 300,
-        temperature: 0.7
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const data = await response.json();
-    const reply = data.choices[0].message.content;
-    conversationRef.current.push({ role: 'assistant', content: reply });
-    if (conversationRef.current.length > 10) {
-      conversationRef.current.splice(1, conversationRef.current.length - 10); // keep system + last 9 exchanges
-    }
-    return reply;
-  };
-
+  }, [handleVoiceInput]);
 
   const handleActivation = useCallback(() => {
     if (isSettingsOpen) return;
